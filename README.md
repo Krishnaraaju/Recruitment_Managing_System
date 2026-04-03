@@ -2,16 +2,6 @@
 
 A production-style Campus Recruitment platform built entirely with Spring Boot 3, Spring Security 6 (JWT), and MySQL 8.
 
-## Resume Points
-
-- Designed and developed a Campus Recruitment Platform using Spring Boot 3, Spring Security 6, and JWT.
-- Implemented state-of-the-art stateless authentication with JWT (`jjwt`), enabling secure access for 3 distinct user roles (STUDENT, RECRUITER, ADMIN).
-- Built a RESTful API containing over 50 endpoints with pagination, dynamic sorting, filtering, and robust validation.
-- Engineered a normalized, scalable MySQL schema comprising 13 tables utilizing Spring Data JPA, soft delete mechanisms, and automatic auditing fields.
-- Documented entire API surface area using Swagger/OpenAPI 3 dynamically served via Springdoc.
-- Achieved a highly decoupled layered architecture by implementing DTO-to-Entity mapping, global exception handlers, and isolated service facades.
-- Added file upload mechanisms allowing students to securely submit resumes to local storage.
-
 ## Features
 
 - **Students**: Create profiles, list skills, upload resume copies, search job posts, apply to jobs, track application statuses.
