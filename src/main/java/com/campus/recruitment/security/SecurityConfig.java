@@ -63,7 +63,7 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         // Static frontend resources
-                        .requestMatchers("/", "/index.html", "/login.html", "/register.html", "/dashboard.html").permitAll()
+                        .requestMatchers("/", "/index.html", "/login.html", "/register.html", "/dashboard.html", "/favicon.ico").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
                         // Public read endpoints
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/jobs", "/api/jobs/**").permitAll()
