@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CampusHire</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <span class="logo-icon">🎓</span>
+                <span class="logo-text">Campus<span class="logo-highlight">Hire</span></span>
+            </a>
+            <div class="nav-links" id="navLinks"></div>
+        </div>
+    </nav>
+
+    <!-- Dashboard Layout -->
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <div class="page-header">
+                <h1 id="pageTitle">Dashboard</h1>
+                <p id="pageSubtitle">Welcome back!</p>
+            </div>
+            <div id="pageContent">
+                <!-- Dynamic content loads here -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <h3>Loading...</h3>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalContent"></div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        // ==========================================
+        // Dashboard Router
+        // ==========================================
+        requireAuth();
+        const role = getRole();
+        const user = getUser();
+
+        document.getElementById('pageSubtitle').textContent = `Welcome back, ${user.email}`;
+
+        // Build Sidebar
+        function buildSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            let links = '';
+
+            if (role === 'ADMIN') {
+                links = `
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Overview</div>
+                        <div class="sidebar-link active" onclick="loadPage('dashboard')">
+                            <span class="sidebar-link-icon">📊</span> Dashboard
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Management</div>
+                        <div class="sidebar-link" onclick="loadPage('users')">
+                            <span class="sidebar-link-icon">👥</span> Users
+                        </div>
+                        <div class="sidebar-link" onclick="loadPage('categories')">
+                            <span class="sidebar-link-icon">📁</span> Categories
+                        </div>
+                        <div class="sidebar-link" onclick="loadPage('companies')">
+                            <span class="sidebar-link-icon">🏢</span> Companies
+                        </div>
+                        <div class="sidebar-link" onclick="loadPage('skills')">
+                            <span class="sidebar-link-icon">🏷️</span> Skills
+                        </div>
+                        <div class="sidebar-link" onclick="loadPage('approvals')">
+                            <span class="sidebar-link-icon">✅</span> Approvals
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Alerts</div>
+                        <div class="sidebar-link" onclick="loadPage('notifications')">
+                            <span class="sidebar-link-icon">🔔</span> Notifications
+                        </div>
+                    </div>`;
+            } else if (role === 'RECRUITER') {
+                links = `
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Overview</div>
+                        <div class="sidebar-link active" onclick="loadPage('myJobs')">
+                            <span class="sidebar-link-icon">💼</span> My Job Posts
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Actions</div>
+                        <div class="sidebar-link" onclick="openCreateJobModal()">
+                            <span class="sidebar-link-icon">➕</span> Post New Job
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Alerts</div>
+                        <div class="sidebar-link" onclick="loadPage('notifications')">
+                            <span class="sidebar-link-icon">🔔</span> Notifications
+                        </div>
+                    </div>`;
+            } else if (role === 'STUDENT') {
+                links = `
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">My Profile</div>
+                        <div class="sidebar-link active" onclick="loadPage('profile')">
+                            <span class="sidebar-link-icon">👤</span> Profile
+                        </div>
+                        <div class="sidebar-link" onclick="loadPage('resumes')">
+                            <span class="sidebar-link-icon">📄</span> My Resumes
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Jobs</div>
+                        <div class="sidebar-link" onclick="loadPage('browseJobs')">
+                            <span class="sidebar-link-icon">🔍</span> Browse Jobs
+                        </div>
+                        <div class="sidebar-link" onclick="loadPage('myApplications')">
+                            <span class="sidebar-link-icon">📋</span> My Applications
+                        </div>
+                    </div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Alerts</div>
+                        <div class="sidebar-link" onclick="loadPage('notifications')">
+                            <span class="sidebar-link-icon">🔔</span> Notifications
+                        </div>
+                    </div>`;
+            }
+
+            sidebar.innerHTML = `<nav class="sidebar-nav">${links}</nav>`;
+        }
+
+        function setActiveSidebar(page) {
+            document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+            const links = document.querySelectorAll('.sidebar-link');
+            links.forEach(l => { if (l.textContent.trim().toLowerCase().includes(page.toLowerCase())) l.classList.add('active'); });
+        }
+
+        // ==========================================
+        // Page Loader
+        // ==========================================
+        async function loadPage(page) {
+            const content = document.getElementById('pageContent');
+            const title = document.getElementById('pageTitle');
+
+            content.innerHTML = '<div class="empty-state"><div class="spinner" style="width:40px;height:40px;border-width:3px;"></div></div>';
+
+            switch(page) {
+                case 'dashboard': await loadAdminDashboard(); break;
+                case 'users': await loadUsers(); break;
+                case 'categories': await loadCategories(); break;
+                case 'companies': await loadCompanies(); break;
+                case 'skills': await loadSkills(); break;
+                case 'myJobs': await loadMyJobs(); break;
+                case 'profile': await loadProfile(); break;
+                case 'resumes': await loadResumes(); break;
+                case 'browseJobs': await loadBrowseJobs(); break;
+                case 'myApplications': await loadMyApplications(); break;
+                case 'approvals': await loadApprovals(); break;
+                case 'notifications': await loadNotifications(); break;
+            }
+        }
+
+        // ==========================================
+        // ADMIN PAGES
+        // ==========================================
+        async function loadAdminDashboard() {
+            document.getElementById('pageTitle').textContent = 'Admin Dashboard';
+            const res = await api.get('/api/admin/dashboard');
+            if (!res.success) return;
+            const d = res.data;
+            document.getElementById('pageContent').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-icon">🎓</div>
+                        <div class="stat-card-value">${d.totalStudents}</div>
+                        <div class="stat-card-label">Students</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon">💼</div>
+                        <div class="stat-card-value">${d.totalRecruiters}</div>
+                        <div class="stat-card-label">Recruiters</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon">⏳</div>
+                        <div class="stat-card-value">${d.pendingRecruiterApprovals}</div>
+                        <div class="stat-card-label">Pending Approvals</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon">📝</div>
+                        <div class="stat-card-value">${d.totalJobs}</div>
+                        <div class="stat-card-label">Job Posts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon">📬</div>
+                        <div class="stat-card-value">${d.totalApplications}</div>
+                        <div class="stat-card-label">Applications</div>
+                    </div>
+                </div>`;
+        }
+
+        async function loadUsers() {
+            document.getElementById('pageTitle').textContent = 'Manage Users';
+            const res = await api.get('/api/admin/users?page=0&size=50');
+            if (!res.success) return;
+            const users = res.data.content;
+            let rows = users.map(u => `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${u.email}</td>
+                    <td><span class="nav-role-badge badge-${u.role.toLowerCase()}">${u.role}</span></td>
+                    <td><span class="status-badge ${u.active ? 'status-open' : 'status-rejected'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+                    <td>
+                        <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUserStatus(${u.id}, ${!u.active})">
+                            ${u.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                    </td>
+                </tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header"><h3>All Users</h3></div>
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="5" class="empty-state">No users found</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        async function toggleUserStatus(userId, isActive) {
+            await api.put(`/api/admin/users/${userId}/status?isActive=${isActive}`);
+            showToast('User status updated', 'success');
+            loadUsers();
+        }
+
+        async function loadCategories() {
+            document.getElementById('pageTitle').textContent = 'Categories';
+            const res = await api.get('/api/categories');
+            if (!res.success) return;
+            let rows = res.data.map(c => `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.description || '-'}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="deleteCategory(${c.id})">Delete</button></td></tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header">
+                        <h3>Job Categories</h3>
+                        <button class="btn btn-sm btn-primary" onclick="openAddCategoryModal()">+ Add Category</button>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Action</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="4">No categories</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function openAddCategoryModal() {
+            openModal('Add Category', `
+                <form id="addCategoryForm">
+                    <div class="form-group"><label>Name</label><input type="text" id="catName" class="form-control" required></div>
+                    <div class="form-group"><label>Description</label><input type="text" id="catDesc" class="form-control"></div>
+                    <button type="submit" class="btn btn-primary form-btn">Create</button>
+                </form>
+            `);
+            document.getElementById('addCategoryForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const res = await api.post('/api/categories', { name: document.getElementById('catName').value, description: document.getElementById('catDesc').value });
+                if (res.success) { closeModal(); showToast('Category created!', 'success'); loadCategories(); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        async function deleteCategory(id) { await api.del(`/api/categories/${id}`); showToast('Category deleted', 'success'); loadCategories(); }
+
+        // Recruiter Approvals
+        async function loadApprovals() {
+            document.getElementById('pageTitle').textContent = 'Recruiter Approvals';
+            const res = await api.get('/api/admin/users?page=0&size=100');
+            if (!res.success) return;
+            const recruiters = res.data.content.filter(u => u.role === 'RECRUITER');
+            let rows = recruiters.map(r => `
+                <tr>
+                    <td>${r.id}</td>
+                    <td>${r.email}</td>
+                    <td><span class="status-badge ${r.active ? 'status-open' : 'status-rejected'}">${r.active ? 'Active' : 'Inactive'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="approveRecruiter(${r.id})">Approve</button>
+                    </td>
+                </tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header"><h3>Recruiter Accounts</h3></div>
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="4">No recruiter accounts</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        async function approveRecruiter(profileId) {
+            await api.put(`/api/admin/recruiters/${profileId}/approve`);
+            showToast('Recruiter approved!', 'success');
+            loadApprovals();
+        }
+
+        async function loadCompanies() {
+            document.getElementById('pageTitle').textContent = 'Companies';
+            const res = await api.get('/api/companies');
+            if (!res.success) return;
+            let rows = res.data.map(c => `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.industry || '-'}</td><td>${c.website || '-'}</td></tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header">
+                        <h3>Companies</h3>
+                        <button class="btn btn-sm btn-primary" onclick="openAddCompanyModal()">+ Add Company</button>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Name</th><th>Industry</th><th>Website</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="4">No companies</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function openAddCompanyModal() {
+            openModal('Add Company', `
+                <form id="addCompanyForm">
+                    <div class="form-group"><label>Name *</label><input type="text" id="compName" class="form-control" required></div>
+                    <div class="form-group"><label>Industry</label><input type="text" id="compIndustry" class="form-control"></div>
+                    <div class="form-group"><label>Website</label><input type="text" id="compWebsite" class="form-control"></div>
+                    <button type="submit" class="btn btn-primary form-btn">Create</button>
+                </form>
+            `);
+            document.getElementById('addCompanyForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const res = await api.post('/api/companies', { name: document.getElementById('compName').value, industry: document.getElementById('compIndustry').value, website: document.getElementById('compWebsite').value });
+                if (res.success) { closeModal(); showToast('Company created!', 'success'); loadCompanies(); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        async function loadSkills() {
+            document.getElementById('pageTitle').textContent = 'Skills';
+            const res = await api.get('/api/skills');
+            if (!res.success) return;
+            let tags = res.data.map(s => `<span class="skill-tag" style="font-size:0.85rem;padding:6px 14px;">${s.name}</span>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header">
+                        <h3>All Skills</h3>
+                        <button class="btn btn-sm btn-primary" onclick="openAddSkillModal()">+ Add Skill</button>
+                    </div>
+                    <div style="padding:24px;display:flex;flex-wrap:wrap;gap:8px;">${tags || '<p class="empty-state">No skills yet</p>'}</div>
+                </div>`;
+        }
+
+        function openAddSkillModal() {
+            openModal('Add Skill', `
+                <form id="addSkillForm">
+                    <div class="form-group"><label>Skill Name</label><input type="text" id="skillName" class="form-control" required></div>
+                    <button type="submit" class="btn btn-primary form-btn">Create</button>
+                </form>
+            `);
+            document.getElementById('addSkillForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const res = await api.post(`/api/skills?name=${encodeURIComponent(document.getElementById('skillName').value)}`);
+                if (res.success) { closeModal(); showToast('Skill created!', 'success'); loadSkills(); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        // ==========================================
+        // STUDENT PAGES
+        // ==========================================
+        async function loadProfile() {
+            document.getElementById('pageTitle').textContent = 'My Profile';
+            const res = await api.get('/api/students/profile');
+            if (!res.success) { document.getElementById('pageContent').innerHTML = `<div class="empty-state"><h3>${res.message}</h3></div>`; return; }
+            const p = res.data;
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card" style="padding:32px;">
+                    <div style="display:flex;align-items:center;gap:24px;margin-bottom:32px;">
+                        <div class="nav-user-avatar" style="width:72px;height:72px;font-size:1.8rem;">${(p.fullName||'S')[0]}</div>
+                        <div>
+                            <h2 style="margin-bottom:4px;">${p.fullName}</h2>
+                            <p style="color:var(--text-muted);">${p.degree || ''} ${p.branch ? '• ' + p.branch : ''} ${p.graduationYear ? '• ' + p.graduationYear : ''}</p>
+                        </div>
+                    </div>
+                    <div class="stats-grid" style="margin-bottom:24px;">
+                        <div class="stat-card"><div class="stat-card-label">College</div><div style="font-size:1.1rem;font-weight:600;margin-top:4px;">${p.college || 'Not set'}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">Phone</div><div style="font-size:1.1rem;font-weight:600;margin-top:4px;">${p.phone || 'Not set'}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">CGPA</div><div style="font-size:1.1rem;font-weight:600;margin-top:4px;">${p.cgpa || 'Not set'}</div></div>
+                    </div>
+                    ${p.skills && p.skills.length ? '<div style="margin-bottom:16px;"><strong>Skills:</strong></div><div style="display:flex;flex-wrap:wrap;gap:8px;">' + p.skills.map(s => `<span class="skill-tag">${s}</span>`).join('') + '</div>' : ''}
+                    ${p.bio ? `<div style="margin-top:24px;"><strong>Bio:</strong><p style="color:var(--text-secondary);margin-top:8px;">${p.bio}</p></div>` : ''}
+                    <div style="margin-top:24px;"><button class="btn btn-primary" onclick="openEditProfileModal()">✏️ Edit Profile</button></div>
+                </div>`;
+        }
+
+        async function loadResumes() {
+            document.getElementById('pageTitle').textContent = 'My Resumes';
+            const res = await api.get('/api/resumes');
+            if (!res.success) return;
+            let rows = res.data.map(r => `
+                <tr>
+                    <td>${r.fileName}</td>
+                    <td>${r.primary ? '<span class="status-badge status-open">Primary</span>' : '-'}</td>
+                    <td>${new Date(r.uploadedAt).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="window.open('/api/resumes/${r.id}/download')">Download</button>
+                        ${!r.primary ? `<button class="btn btn-sm btn-outline" onclick="setPrimary(${r.id})">Set Primary</button>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="deleteResume(${r.id})">Delete</button>
+                    </td>
+                </tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header">
+                        <h3>Uploaded Resumes</h3>
+                        <button class="btn btn-sm btn-primary" onclick="openUploadResumeModal()">⬆ Upload Resume</button>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>File</th><th>Primary</th><th>Uploaded</th><th>Actions</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="4" class="empty-state">No resumes uploaded</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function openUploadResumeModal() {
+            openModal('Upload Resume', `
+                <form id="uploadResumeForm">
+                    <div class="form-group">
+                        <label>Select file (PDF recommended)</label>
+                        <input type="file" id="resumeFile" class="form-control" accept=".pdf,.doc,.docx" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary form-btn">Upload</button>
+                </form>
+            `);
+            document.getElementById('uploadResumeForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('file', document.getElementById('resumeFile').files[0]);
+                const res = await api.upload('/api/resumes/upload', formData);
+                if (res.success) { closeModal(); showToast('Resume uploaded!', 'success'); loadResumes(); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        async function setPrimary(id) { await api.put(`/api/resumes/${id}/primary`); showToast('Primary resume updated', 'success'); loadResumes(); }
+        async function deleteResume(id) { await api.del(`/api/resumes/${id}`); showToast('Resume deleted', 'success'); loadResumes(); }
+
+        function openEditProfileModal() {
+            openModal('Edit Profile', `
+                <form id="editProfileForm">
+                    <div class="form-row">
+                        <div class="form-group"><label>Full Name</label><input type="text" id="epName" class="form-control"></div>
+                        <div class="form-group"><label>Phone</label><input type="tel" id="epPhone" class="form-control"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>College</label><input type="text" id="epCollege" class="form-control"></div>
+                        <div class="form-group"><label>Degree</label><input type="text" id="epDegree" class="form-control"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Branch</label><input type="text" id="epBranch" class="form-control"></div>
+                        <div class="form-group"><label>Graduation Year</label><input type="number" id="epGradYear" class="form-control"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>CGPA</label><input type="number" step="0.01" id="epCgpa" class="form-control"></div>
+                        <div class="form-group"><label>Skills (comma sep)</label><input type="text" id="epSkills" class="form-control"></div>
+                    </div>
+                    <div class="form-group"><label>Bio</label><textarea id="epBio" class="form-control" rows="3"></textarea></div>
+                    <button type="submit" class="btn btn-primary form-btn">Save Changes</button>
+                </form>
+            `);
+            // Pre-fill with current data
+            api.get('/api/students/profile').then(res => {
+                if (res.success) {
+                    const p = res.data;
+                    document.getElementById('epName').value = p.fullName || '';
+                    document.getElementById('epPhone').value = p.phone || '';
+                    document.getElementById('epCollege').value = p.college || '';
+                    document.getElementById('epDegree').value = p.degree || '';
+                    document.getElementById('epBranch').value = p.branch || '';
+                    document.getElementById('epGradYear').value = p.graduationYear || '';
+                    document.getElementById('epCgpa').value = p.cgpa || '';
+                    document.getElementById('epSkills').value = (p.skills || []).join(', ');
+                    document.getElementById('epBio').value = p.bio || '';
+                }
+            });
+            document.getElementById('editProfileForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const skills = document.getElementById('epSkills').value.split(',').map(s => s.trim()).filter(Boolean);
+                const res = await api.put('/api/students/profile', {
+                    fullName: document.getElementById('epName').value,
+                    phone: document.getElementById('epPhone').value,
+                    college: document.getElementById('epCollege').value,
+                    degree: document.getElementById('epDegree').value,
+                    branch: document.getElementById('epBranch').value,
+                    graduationYear: parseInt(document.getElementById('epGradYear').value) || null,
+                    cgpa: parseFloat(document.getElementById('epCgpa').value) || null,
+                    skills: skills,
+                    bio: document.getElementById('epBio').value
+                });
+                if (res.success) { closeModal(); showToast('Profile updated!', 'success'); loadProfile(); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        async function loadBrowseJobs() {
+            document.getElementById('pageTitle').textContent = 'Browse Jobs';
+            const res = await api.get('/api/jobs?page=0&size=20&sortDir=DESC&sortField=createdAt');
+            if (!res.success) return;
+            const jobs = res.data.content;
+            let cards = jobs.map(j => `
+                <div class="job-card">
+                    <div class="job-card-header">
+                        <div>
+                            <div class="job-card-title">${j.title}</div>
+                            <div class="job-card-company">${j.companyName}</div>
+                        </div>
+                        <span class="job-card-type type-${j.type.toLowerCase()}">${j.type}</span>
+                    </div>
+                    <div class="job-card-meta">
+                        <span>📍 ${j.location || 'Remote'}</span>
+                        <span>📁 ${j.categoryName}</span>
+                        ${j.stipend ? `<span>💰 ₹${j.stipend}</span>` : ''}
+                    </div>
+                    <div class="job-card-skills">
+                        ${(j.skills || []).map(s => `<span class="skill-tag">${s}</span>`).join('')}
+                    </div>
+                    <div class="job-card-actions">
+                        <span style="font-size:0.8rem;color:var(--text-muted);">Deadline: ${j.deadline}</span>
+                        <button class="btn btn-sm btn-primary" onclick="applyToJob(${j.id})">Apply Now</button>
+                    </div>
+                </div>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="jobs-grid">${cards || '<div class="empty-state"><div class="empty-state-icon">📭</div><h3>No jobs posted yet</h3></div>'}</div>`;
+        }
+
+        async function applyToJob(jobId) {
+            const res = await api.post('/api/applications', { jobPostId: jobId, coverLetter: 'I am excited to apply for this position.' });
+            if (res.success) showToast('Application submitted!', 'success');
+            else showToast(res.message, 'error');
+        }
+
+        async function loadMyApplications() {
+            document.getElementById('pageTitle').textContent = 'My Applications';
+            const res = await api.get('/api/applications?page=0&size=20');
+            if (!res.success) return;
+            const apps = res.data.content;
+            let rows = apps.map(a => `
+                <tr>
+                    <td><strong>${a.jobTitle}</strong></td>
+                    <td><span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span></td>
+                    <td>${new Date(a.appliedAt).toLocaleDateString()}</td>
+                </tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header"><h3>Applications</h3></div>
+                    <table class="data-table">
+                        <thead><tr><th>Job</th><th>Status</th><th>Applied</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="3" class="empty-state">No applications yet</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        // ==========================================
+        // RECRUITER PAGES
+        // ==========================================
+        async function loadMyJobs() {
+            document.getElementById('pageTitle').textContent = 'My Job Posts';
+            const res = await api.get('/api/jobs/recruiter?page=0&size=20');
+            if (!res.success) { document.getElementById('pageContent').innerHTML = `<div class="empty-state"><h3>${res.message}</h3><p>Your account may need admin approval first.</p></div>`; return; }
+            const jobs = res.data.content;
+            let rows = jobs.map(j => `
+                <tr>
+                    <td><strong>${j.title}</strong></td>
+                    <td><span class="job-card-type type-${j.type.toLowerCase()}">${j.type}</span></td>
+                    <td>${j.location || '-'}</td>
+                    <td><span class="status-badge status-${j.status.toLowerCase()}">${j.status}</span></td>
+                    <td>${j.deadline}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="viewApplicants(${j.id})">View Applicants</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteJob(${j.id})">Delete</button>
+                    </td>
+                </tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div class="data-card">
+                    <div class="data-card-header">
+                        <h3>Your Postings</h3>
+                        <button class="btn btn-sm btn-primary" onclick="openCreateJobModal()">+ Post New Job</button>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Title</th><th>Type</th><th>Location</th><th>Status</th><th>Deadline</th><th>Action</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="6" class="empty-state">No jobs posted yet</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        async function viewApplicants(jobId) {
+            document.getElementById('pageTitle').textContent = 'Applicants';
+            const res = await api.get(`/api/applications/job/${jobId}?page=0&size=50`);
+            if (!res.success) return;
+            const apps = res.data.content;
+            let rows = apps.map(a => `
+                <tr>
+                    <td>${a.studentName}</td>
+                    <td><span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span></td>
+                    <td>${new Date(a.appliedAt).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="updateAppStatus(${a.id}, 'SHORTLISTED')">Shortlist</button>
+                        <button class="btn btn-sm btn-danger" onclick="updateAppStatus(${a.id}, 'REJECTED')">Reject</button>
+                        <button class="btn btn-sm btn-warning" onclick="openScheduleInterviewModal(${a.id})">📅 Interview</button>
+                    </td>
+                </tr>`).join('');
+
+            document.getElementById('pageContent').innerHTML = `
+                <div style="margin-bottom:16px;"><button class="btn btn-sm btn-outline" onclick="loadMyJobs()">← Back to Jobs</button></div>
+                <div class="data-card">
+                    <div class="data-card-header"><h3>Applicants</h3></div>
+                    <table class="data-table">
+                        <thead><tr><th>Student</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="4">No applicants yet</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        async function updateAppStatus(appId, status) {
+            await api.put(`/api/applications/${appId}/status?status=${status}`);
+            showToast(`Application ${status.toLowerCase()}`, 'success');
+        }
+
+        async function deleteJob(jobId) {
+            const res = await api.del(`/api/jobs/${jobId}`);
+            if (res.success) { showToast('Job deleted', 'success'); loadMyJobs(); }
+            else showToast(res.message, 'error');
+        }
+
+        // Recruiter: Schedule Interview
+        function openScheduleInterviewModal(appId) {
+            openModal('Schedule Interview', `
+                <form id="scheduleInterviewForm">
+                    <div class="form-group"><label>Date & Time *</label><input type="datetime-local" id="intDateTime" class="form-control" required></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Mode *</label>
+                            <select id="intMode" class="form-control" required><option value="ONLINE">Online</option><option value="OFFLINE">Offline</option></select>
+                        </div>
+                        <div class="form-group"><label>Meet Link</label><input type="url" id="intLink" class="form-control" placeholder="https://meet.google.com/..."></div>
+                    </div>
+                    <div class="form-group"><label>Notes</label><textarea id="intNotes" class="form-control" rows="2"></textarea></div>
+                    <button type="submit" class="btn btn-primary form-btn">Schedule</button>
+                </form>
+            `);
+            document.getElementById('scheduleInterviewForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const res = await api.post('/api/interviews', {
+                    applicationId: appId,
+                    scheduledAt: document.getElementById('intDateTime').value,
+                    mode: document.getElementById('intMode').value,
+                    meetLink: document.getElementById('intLink').value,
+                    notes: document.getElementById('intNotes').value
+                });
+                if (res.success) { closeModal(); showToast('Interview scheduled!', 'success'); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        function openCreateJobModal() {
+            openModal('Post New Job', `
+                <form id="createJobForm">
+                    <div class="form-group"><label>Title *</label><input type="text" id="jobTitle" class="form-control" required></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Type *</label>
+                            <select id="jobType" class="form-control" required><option value="JOB">Job</option><option value="INTERNSHIP">Internship</option></select>
+                        </div>
+                        <div class="form-group"><label>Category *</label>
+                            <select id="jobCatId" class="form-control" required><option value="">Loading...</option></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Location</label><input type="text" id="jobLocation" class="form-control"></div>
+                        <div class="form-group"><label>Stipend (₹)</label><input type="number" id="jobStipend" class="form-control"></div>
+                    </div>
+                    <div class="form-group"><label>Description *</label><textarea id="jobDesc" class="form-control" rows="3" required></textarea></div>
+                    <div class="form-group"><label>Requirements</label><textarea id="jobReqs" class="form-control" rows="2"></textarea></div>
+                    <div class="form-group"><label>Deadline *</label><input type="date" id="jobDeadline" class="form-control" required></div>
+                    <div class="form-group"><label>Skills (comma separated)</label><input type="text" id="jobSkills" class="form-control" placeholder="Java, Spring Boot, MySQL"></div>
+                    <button type="submit" class="btn btn-primary form-btn">Post Job</button>
+                </form>
+            `);
+            // Load categories into dropdown
+            api.get('/api/categories').then(res => {
+                if (res.success) {
+                    const select = document.getElementById('jobCatId');
+                    select.innerHTML = res.data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                    if (!res.data.length) select.innerHTML = '<option value="">No categories (Admin must create)</option>';
+                }
+            });
+            document.getElementById('createJobForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const skills = document.getElementById('jobSkills').value.split(',').map(s => s.trim()).filter(Boolean);
+                const res = await api.post('/api/jobs', {
+                    title: document.getElementById('jobTitle').value,
+                    type: document.getElementById('jobType').value,
+                    categoryId: parseInt(document.getElementById('jobCatId').value),
+                    location: document.getElementById('jobLocation').value,
+                    stipend: parseFloat(document.getElementById('jobStipend').value) || null,
+                    description: document.getElementById('jobDesc').value,
+                    requirements: document.getElementById('jobReqs').value,
+                    deadline: document.getElementById('jobDeadline').value,
+                    skills: skills
+                });
+                if (res.success) { closeModal(); showToast('Job posted!', 'success'); loadMyJobs(); }
+                else showToast(res.message, 'error');
+            };
+        }
+
+        // ==========================================
+        // Modal Helpers
+        // ==========================================
+        function openModal(title, bodyHTML) {
+            document.getElementById('modalContent').innerHTML = `
+                <div class="modal-header">
+                    <h3>${title}</h3>
+                    <span class="modal-close" onclick="closeModal()">✕</span>
+                </div>
+                ${bodyHTML}`;
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        // ==========================================
+        // NOTIFICATIONS (All Roles)
+        // ==========================================
+        async function loadNotifications() {
+            document.getElementById('pageTitle').textContent = 'Notifications';
+            const res = await api.get('/api/notifications?page=0&size=30');
+            if (!res.success) { document.getElementById('pageContent').innerHTML = '<div class="empty-state"><h3>Could not load notifications</h3></div>'; return; }
+            const notifs = res.data.content;
+            let rows = notifs.map(n => `
+                <tr style="${n.read ? '' : 'background:var(--bg-glass);'}">
+                    <td>${n.type}</td>
+                    <td>${n.message}</td>
+                    <td>${new Date(n.createdAt).toLocaleString()}</td>
+                    <td>
+                        ${!n.read ? `<button class="btn btn-sm btn-outline" onclick="markRead(${n.id})">Mark Read</button>` : '<span style="color:var(--text-muted)">Read</span>'}
+                    </td>
+                </tr>`).join('');
+
+            const countRes = await api.get('/api/notifications/unread-count');
+            const unread = countRes.success ? countRes.data : 0;
+
+            document.getElementById('pageContent').innerHTML = `
+                <div style="margin-bottom:16px;"><span class="status-badge status-applied">${unread} unread</span></div>
+                <div class="data-card">
+                    <div class="data-card-header"><h3>All Notifications</h3></div>
+                    <table class="data-table">
+                        <thead><tr><th>Type</th><th>Message</th><th>Time</th><th>Action</th></tr></thead>
+                        <tbody>${rows || '<tr><td colspan="4" class="empty-state">No notifications yet</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        async function markRead(id) {
+            await api.put(`/api/notifications/${id}/read`);
+            showToast('Marked as read', 'success');
+            loadNotifications();
+        }
+
+        // ==========================================
+        // Initialize
+        // ==========================================
+        buildSidebar();
+
+        // Load default page based on role
+        if (role === 'ADMIN') loadPage('dashboard');
+        else if (role === 'RECRUITER') loadPage('myJobs');
+        else if (role === 'STUDENT') loadPage('profile');
+    </script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - CampusHire</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <span class="logo-icon">🎓</span>
+                <span class="logo-text">Campus<span class="logo-highlight">Hire</span></span>
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="/login.html" class="nav-link">Login</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="auth-page">
+        <div class="hero-bg-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+        </div>
+        <div class="auth-card" style="max-width:520px;">
+            <div class="auth-header">
+                <h2>Create Account</h2>
+                <p>Join the campus recruitment platform</p>
+            </div>
+
+            <div class="form-message" id="registerMessage"></div>
+
+            <form id="registerForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fullName">Full Name *</label>
+                        <input type="text" id="fullName" class="form-control" placeholder="John Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="role">Register As *</label>
+                        <select id="role" class="form-control" required>
+                            <option value="">Select Role</option>
+                            <option value="STUDENT">Student</option>
+                            <option value="RECRUITER">Recruiter</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" class="form-control" placeholder="you@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password *</label>
+                        <input type="password" id="password" class="form-control" placeholder="Min 6 characters" required minlength="6">
+                    </div>
+                </div>
+
+                <!-- Student Fields -->
+                <div id="studentFields" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone</label>
+                            <input type="tel" id="phone" class="form-control" placeholder="9876543210">
+                        </div>
+                        <div class="form-group">
+                            <label for="college">College</label>
+                            <input type="text" id="college" class="form-control" placeholder="Your University">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="degree">Degree</label>
+                            <input type="text" id="degree" class="form-control" placeholder="B.Tech">
+                        </div>
+                        <div class="form-group">
+                            <label for="branch">Branch</label>
+                            <input type="text" id="branch" class="form-control" placeholder="Computer Science">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="graduationYear">Graduation Year</label>
+                        <input type="number" id="graduationYear" class="form-control" placeholder="2026" min="2020" max="2030">
+                    </div>
+                </div>
+
+                <!-- Recruiter Fields -->
+                <div id="recruiterFields" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="designation">Designation</label>
+                            <input type="text" id="designation" class="form-control" placeholder="HR Manager">
+                        </div>
+                        <div class="form-group">
+                            <label for="companyId">Company *</label>
+                            <select id="companyId" class="form-control">
+                                <option value="">Loading companies...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary form-btn" id="registerBtn">
+                    Create Account
+                </button>
+            </form>
+
+            <div class="form-footer">
+                Already have an account? <a href="/login.html">Sign in</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        // Toggle fields based on role selection
+        document.getElementById('role').addEventListener('change', function() {
+            document.getElementById('studentFields').classList.toggle('hidden', this.value !== 'STUDENT');
+            document.getElementById('recruiterFields').classList.toggle('hidden', this.value !== 'RECRUITER');
+            
+            if (this.value === 'RECRUITER') loadCompanies();
+        });
+
+        // Check URL params for role pre-selection
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('role')) {
+            document.getElementById('role').value = params.get('role');
+            document.getElementById('role').dispatchEvent(new Event('change'));
+        }
+
+        async function loadCompanies() {
+            try {
+                const res = await api.get('/api/companies');
+                const select = document.getElementById('companyId');
+                if (res.success && res.data.length) {
+                    select.innerHTML = '<option value="">Select Company</option>' + 
+                        res.data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                } else {
+                    select.innerHTML = '<option value="">No companies yet (Admin must create)</option>';
+                }
+            } catch(e) {
+                document.getElementById('companyId').innerHTML = '<option value="">No companies yet (Admin must create)</option>';
+            }
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('registerMessage');
+            const btn = document.getElementById('registerBtn');
+            const role = document.getElementById('role').value;
+
+            btn.innerHTML = '<span class="spinner"></span> Creating account...';
+            btn.disabled = true;
+            msgEl.style.display = 'none';
+
+            const body = {
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                role: role,
+                fullName: document.getElementById('fullName').value
+            };
+
+            if (role === 'STUDENT') {
+                body.phone = document.getElementById('phone').value;
+                body.college = document.getElementById('college').value;
+                body.degree = document.getElementById('degree').value;
+                body.branch = document.getElementById('branch').value;
+                body.graduationYear = parseInt(document.getElementById('graduationYear').value) || null;
+            } else if (role === 'RECRUITER') {
+                body.designation = document.getElementById('designation').value;
+                body.companyId = parseInt(document.getElementById('companyId').value) || null;
+            }
+
+            try {
+                const result = await api.post('/api/auth/register', body);
+
+                if (result.success) {
+                    msgEl.textContent = 'Registration successful! Redirecting to login...';
+                    msgEl.className = 'form-message success';
+                    showToast('Account created!', 'success');
+                    setTimeout(() => window.location.href = '/login.html', 1500);
+                } else {
+                    msgEl.textContent = result.message || 'Registration failed';
+                    msgEl.className = 'form-message error';
+                }
+            } catch (err) {
+                msgEl.textContent = 'Registration failed. Please check your details.';
+                msgEl.className = 'form-message error';
+            }
+
+            btn.innerHTML = 'Create Account';
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>
